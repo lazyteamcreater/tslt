@@ -1,0 +1,43 @@
+<?php
+
+namespace App\Http\Requests\Api\V1\Auth;
+
+use Illuminate\Foundation\Http\FormRequest;
+
+class LoginRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return true;
+    }
+
+    public function rules(): array
+    {
+        return [
+            'email' => [
+                'required',
+                'email',
+            ],
+
+            'password' => [
+                'required',
+                'string',
+            ],
+
+            'device_name' => [
+                'nullable',
+                'string',
+                'max:100',
+            ],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'email.required' => 'အီးမေးလ်ထည့်ရန် လိုအပ်ပါသည်။',
+            'email.email' => 'အီးမေးလ်လိပ်စာ မှန်ကန်စွာထည့်ပါ။',
+            'password.required' => 'စကားဝှက်ထည့်ရန် လိုအပ်ပါသည်။',
+        ];
+    }
+}
