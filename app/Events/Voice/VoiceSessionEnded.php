@@ -3,6 +3,7 @@
 namespace App\Events\Voice;
 
 use App\Models\VoiceSession;
+use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
@@ -19,11 +20,12 @@ class VoiceSessionEnded implements ShouldBroadcastNow
     }
 
     public function broadcastOn(): array
-{
-    return [
-        new PrivateChannel('voice'),
-    ];
-}
+    {
+        return [
+            new Channel('voice-status'),
+            new PrivateChannel('voice'),
+        ];
+    }
 
     public function broadcastAs(): string
     {
