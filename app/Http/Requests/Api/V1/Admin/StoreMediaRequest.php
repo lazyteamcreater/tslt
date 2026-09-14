@@ -12,6 +12,29 @@ class StoreMediaRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        $type = strtolower(
+            trim((string) $this->input('type'))
+        );
+
+        $orientation = strtolower(
+            trim((string) $this->input(
+                'video_orientation',
+                ''
+            ))
+        );
+
+        $this->merge([
+            'type' => $type,
+            'video_orientation' => $type === 'video'
+                ? ($orientation !== ''
+                    ? $orientation
+                    : 'landscape')
+                : null,
+        ]);
+    }
+
     public function rules(): array
     {
         return [
@@ -26,6 +49,22 @@ class StoreMediaRequest extends FormRequest
                 Rule::in([
                     'audio',
                     'video',
+                ]),
+            ],
+
+            /*
+             * Video ဖြစ်ရင် portrait/landscape လိုအပ်ပါတယ်။
+             * Audio ဖြစ်ရင် prepareForValidation မှာ null ပြောင်းပါမယ်။
+             */
+            'video_orientation' => [
+                Rule::requiredIf(
+                    fn (): bool =>
+                        $this->input('type') === 'video'
+                ),
+                'nullable',
+                Rule::in([
+                    'portrait',
+                    'landscape',
                 ]),
             ],
 
@@ -79,6 +118,17 @@ class StoreMediaRequest extends FormRequest
                 'nullable',
                 'date',
             ],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'video_orientation.required' =>
+                'Video ပုံစံရွေးရန် လိုအပ်ပါသည်။',
+
+            'video_orientation.in' =>
+                'Video ပုံစံသည် portrait သို့မဟုတ် landscape ဖြစ်ရပါမည်။',
         ];
     }
 }

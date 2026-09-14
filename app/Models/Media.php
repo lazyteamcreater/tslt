@@ -22,6 +22,7 @@ class Media extends Model
         'sort_order',
         'is_active',
         'published_at',
+        'video_orientation',
     ];
 
     protected function casts(): array
@@ -33,6 +34,7 @@ class Media extends Model
             'sort_order' => 'integer',
             'is_active' => 'boolean',
             'published_at' => 'datetime',
+            'video_orientation' => 'string',
         ];
     }
 

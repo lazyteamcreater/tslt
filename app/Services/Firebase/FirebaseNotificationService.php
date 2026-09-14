@@ -117,6 +117,7 @@ class FirebaseNotificationService
                 )
                 ->all();
 
+
         $message = CloudMessage::new()
             ->withNotification(
                 Notification::create(

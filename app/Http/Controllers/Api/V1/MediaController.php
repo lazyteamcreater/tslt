@@ -19,9 +19,8 @@ class MediaController extends Controller
      * /api/v1/media?category_id=1
      * /api/v1/media?search=တရား
      */
-    public function index(
-        Request $request
-    ): JsonResponse {
+    public function index(Request $request): JsonResponse
+    {
         $query = Media::query()
             ->with('category')
             ->where('is_active', true)
@@ -35,9 +34,6 @@ class MediaController extends Controller
                     );
             });
 
-        /*
-         * Type
-         */
         if (
             in_array(
                 $request->input('type'),
@@ -51,9 +47,6 @@ class MediaController extends Controller
             );
         }
 
-        /*
-         * Category
-         */
         if ($request->filled('category_id')) {
             $query->where(
                 'media_category_id',
@@ -61,9 +54,6 @@ class MediaController extends Controller
             );
         }
 
-        /*
-         * Search
-         */
         if ($request->filled('search')) {
             $search = trim(
                 (string) $request->input('search')
@@ -98,24 +88,23 @@ class MediaController extends Controller
             ->cursorPaginate(20);
 
         return response()->json([
-            'data' => collect(
-                $media->items()
-            )->map(
-                fn (Media $medium) =>
-                $this->mediaData($medium)
-            )->values(),
+            'data' => collect($media->items())
+                ->map(
+                    fn (Media $medium): array =>
+                        $this->mediaData($medium)
+                )
+                ->values(),
 
             'meta' => [
-                'per_page' =>
-                    $media->perPage(),
+                'per_page' => $media->perPage(),
 
-                'next_cursor' =>
-                    $media->nextCursor()
-                        ?->encode(),
+                'next_cursor' => $media
+                    ->nextCursor()
+                    ?->encode(),
 
-                'previous_cursor' =>
-                    $media->previousCursor()
-                        ?->encode(),
+                'previous_cursor' => $media
+                    ->previousCursor()
+                    ?->encode(),
             ],
         ]);
     }
@@ -123,50 +112,26 @@ class MediaController extends Controller
     /**
      * Public Media Detail
      */
-    public function show(
-        Media $medium
-    ): JsonResponse {
-        if (!$medium->is_active) {
-            abort(404);
-        }
-
-        if (
-            $medium->published_at &&
-            $medium->published_at->isFuture()
-        ) {
-            abort(404);
-        }
+    public function show(Media $medium): JsonResponse
+    {
+        $this->ensureAvailable($medium);
 
         $medium->load('category');
 
         return response()->json([
-            'data' =>
-                $this->mediaData($medium),
+            'data' => $this->mediaData($medium),
         ]);
     }
 
     /**
      * Increase view count.
-     *
-     * Audio / Video နှစ်မျိုးလုံးအတွက်
-     * endpoint တစ်ခုတည်းသုံးမယ်။
      */
     public function incrementView(
         Media $medium
     ): JsonResponse {
-        if (!$medium->is_active) {
-            abort(404);
-        }
-
-        if (
-            $medium->published_at &&
-            $medium->published_at->isFuture()
-        ) {
-            abort(404);
-        }
+        $this->ensureAvailable($medium);
 
         $medium->increment('view_count');
-
         $medium->refresh();
 
         return response()->json([
@@ -174,73 +139,73 @@ class MediaController extends Controller
                 'View count ကို မှတ်တမ်းတင်ပြီးပါပြီ။',
 
             'data' => [
-                'id' =>
-                    $medium->id,
-
-                'view_count' =>
-                    $medium->view_count,
+                'id' => $medium->id,
+                'view_count' => $medium->view_count,
             ],
         ]);
     }
 
-    private function mediaData(
-        Media $medium
-    ): array {
+    private function ensureAvailable(Media $medium): void
+    {
+        if (!$medium->is_active) {
+            abort(404);
+        }
+
+        if (
+            $medium->published_at &&
+            $medium->published_at->isFuture()
+        ) {
+            abort(404);
+        }
+    }
+
+    private function mediaData(Media $medium): array
+    {
         return [
-            'id' =>
-                $medium->id,
+            'id' => $medium->id,
+            'type' => $medium->type,
 
-            'type' =>
-                $medium->type,
+            /*
+             * Audio ဆိုရင် null ဖြစ်ပါမယ်။
+             * Video ဆိုရင် portrait/landscape ပြန်ပါမယ်။
+             */
+            'video_orientation' =>
+                $medium->type === 'video'
+                    ? (
+                        $medium->video_orientation
+                        ?: 'landscape'
+                    )
+                    : null,
 
-            'title' =>
-                $medium->title,
-
-            'description' =>
-                $medium->description,
-
-            'speaker' =>
-                $medium->speaker,
-
-            'source_url' =>
-                $medium->source_url,
-
-            'thumbnail_url' =>
-                $medium->thumbnail_url,
+            'title' => $medium->title,
+            'description' => $medium->description,
+            'speaker' => $medium->speaker,
+            'source_url' => $medium->source_url,
+            'thumbnail_url' => $medium->thumbnail_url,
 
             'duration_seconds' =>
                 $medium->duration_seconds,
 
-            'view_count' =>
-                $medium->view_count,
+            'view_count' => $medium->view_count,
+            'sort_order' => $medium->sort_order,
 
-            'sort_order' =>
-                $medium->sort_order,
+            'category' => $medium->category
+                ? [
+                    'id' => $medium->category->id,
+                    'name' => $medium->category->name,
+                    'type' => $medium->category->type,
+                    'image_url' =>
+                        $medium->category->image_url,
+                ]
+                : null,
 
-            'category' =>
-                $medium->category
-                    ? [
-                        'id' =>
-                            $medium->category->id,
+            'published_at' => $medium
+                ->published_at
+                ?->toISOString(),
 
-                        'name' =>
-                            $medium->category->name,
-
-                        'type' =>
-                            $medium->category->type,
-
-                        'image_url' =>
-                            $medium->category->image_url,
-                    ]
-                    : null,
-
-            'published_at' =>
-                $medium->published_at
-                    ?->toISOString(),
-
-            'created_at' =>
-                $medium->created_at
-                    ?->toISOString(),
+            'created_at' => $medium
+                ->created_at
+                ?->toISOString(),
         ];
     }
 }
