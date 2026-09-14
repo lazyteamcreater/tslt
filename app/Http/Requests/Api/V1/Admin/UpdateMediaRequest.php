@@ -2,10 +2,10 @@
 
 namespace App\Http\Requests\Api\V1\Admin;
 
-use Illuminate\Foundation\Http\FormRequest;
+
 use Illuminate\Validation\Rule;
 
-class UpdateMediaRequest extends FormRequest
+class UpdateMediaRequest extends StoreMediaRequest
 {
     public function authorize(): bool
     {
