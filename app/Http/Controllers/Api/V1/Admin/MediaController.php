@@ -147,46 +147,185 @@ class MediaController extends Controller
     }
 
     private function prepareData(array $data): array
-    {
-        $data['type'] = strtolower(
-            trim((string) ($data['type'] ?? ''))
+{
+    $data['type'] = strtolower(
+        trim((string) ($data['type'] ?? ''))
+    );
+
+    if ($data['type'] === 'video') {
+        $orientation = strtolower(
+            trim(
+                (string) (
+                    $data['video_orientation']
+                    ?? 'landscape'
+                )
+            )
         );
 
+        $data['video_orientation'] =
+            $orientation === 'portrait'
+                ? 'portrait'
+                : 'landscape';
+
         /*
-         * Video ဖြစ်ရင် Admin ရွေးထားတဲ့ orientation
-         * ကိုသိမ်းပါမယ်။
+         * Thumbnail မပါလာမှ YouTube link/ID ကနေ
+         * အလိုအလျောက်တည်ဆောက်ပါမယ်။
          */
-        if ($data['type'] === 'video') {
-            $orientation = strtolower(
-                trim(
-                    (string) (
-                        $data['video_orientation']
-                        ?? 'landscape'
-                    )
-                )
+        $thumbnail = trim(
+            (string) ($data['thumbnail_url'] ?? '')
+        );
+
+        if ($thumbnail === '') {
+            $youtubeId = $this->extractYoutubeId(
+                (string) ($data['source_url'] ?? '')
             );
 
-            $data['video_orientation'] =
-                $orientation === 'portrait'
-                    ? 'portrait'
-                    : 'landscape';
-        } else {
-            /*
-             * Audio အတွက် orientation မလိုပါ။
-             */
-            $data['video_orientation'] = null;
+            $data['thumbnail_url'] = $youtubeId !== null
+                ? "https://img.youtube.com/vi/{$youtubeId}/hqdefault.jpg"
+                : null;
         }
-
-        $data['sort_order'] =
-            (int) ($data['sort_order'] ?? 0);
-
-        $data['is_active'] =
-            array_key_exists('is_active', $data)
-                ? (bool) $data['is_active']
-                : true;
-
-        return $data;
+    } else {
+        $data['video_orientation'] = null;
     }
+
+    $data['sort_order'] =
+        (int) ($data['sort_order'] ?? 0);
+
+    $data['is_active'] =
+        array_key_exists('is_active', $data)
+            ? (bool) $data['is_active']
+            : true;
+
+    return $data;
+}
+
+private function extractYoutubeId(
+    string $source
+): ?string {
+    $source = trim($source);
+
+    if ($source === '') {
+        return null;
+    }
+
+    /*
+     * YouTube ID သီးသန့်
+     * ဥပမာ: cpmUr7a_1To
+     */
+    if (
+        preg_match(
+            '/^[a-zA-Z0-9_-]{11}$/',
+            $source
+        ) === 1
+    ) {
+        return $source;
+    }
+
+    $parts = parse_url($source);
+
+    if ($parts === false) {
+        return null;
+    }
+
+    $host = strtolower(
+        (string) ($parts['host'] ?? '')
+    );
+
+    $host = preg_replace(
+        '/^www\./',
+        '',
+        $host
+    );
+
+    $path = trim(
+        (string) ($parts['path'] ?? ''),
+        '/'
+    );
+
+    /*
+     * youtu.be/VIDEO_ID
+     */
+    if ($host === 'youtu.be') {
+        $segments = explode('/', $path);
+        $videoId = $segments[0] ?? null;
+
+        return $this->validYoutubeId($videoId);
+    }
+
+    $youtubeHosts = [
+        'youtube.com',
+        'm.youtube.com',
+        'music.youtube.com',
+    ];
+
+    if (!in_array($host, $youtubeHosts, true)) {
+        return null;
+    }
+
+    /*
+     * youtube.com/watch?v=VIDEO_ID
+     */
+    if (($parts['query'] ?? '') !== '') {
+        parse_str(
+            (string) $parts['query'],
+            $query
+        );
+
+        if (!empty($query['v'])) {
+            return $this->validYoutubeId(
+                (string) $query['v']
+            );
+        }
+    }
+
+    /*
+     * youtube.com/shorts/VIDEO_ID
+     * youtube.com/embed/VIDEO_ID
+     * youtube.com/live/VIDEO_ID
+     */
+    $segments = array_values(
+        array_filter(
+            explode('/', $path),
+            fn (string $segment): bool =>
+                $segment !== ''
+        )
+    );
+
+    if (count($segments) >= 2) {
+        $type = strtolower($segments[0]);
+
+        if (
+            in_array(
+                $type,
+                ['shorts', 'embed', 'live'],
+                true
+            )
+        ) {
+            return $this->validYoutubeId(
+                $segments[1]
+            );
+        }
+    }
+
+    return null;
+}
+
+private function validYoutubeId(
+    mixed $videoId
+): ?string {
+    if (!is_string($videoId)) {
+        return null;
+    }
+
+    $videoId = trim($videoId);
+
+    return preg_match(
+        '/^[a-zA-Z0-9_-]{11}$/',
+        $videoId
+    ) === 1
+        ? $videoId
+        : null;
+}
 
     private function mediaData(
         Media $medium
