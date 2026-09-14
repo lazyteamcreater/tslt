@@ -40,6 +40,13 @@ class UpdateProfileRequest extends FormRequest
                 'max:2048',
             ],
 
+            'avatar' => [
+                'nullable',
+                'image',
+                'mimes:jpg,jpeg,png,webp',
+                'max:5120',
+            ],
+
             'phone' => [
                 'nullable',
                 'string',
@@ -74,6 +81,15 @@ class UpdateProfileRequest extends FormRequest
 
             'avatar_url.url' =>
                 'Profile ပုံ Link မမှန်ကန်ပါ။',
+
+            'avatar.image' =>
+                'Profile ပုံဖိုင် မှန်ကန်စွာရွေးပါ။',
+
+            'avatar.mimes' =>
+                'JPG, PNG သို့မဟုတ် WEBP ပုံသာ တင်နိုင်ပါသည်။',
+
+            'avatar.max' =>
+                'Profile ပုံသည် 5MB ထက် မကြီးရပါ။',
 
             'gender.in' =>
                 'Gender အချက်အလက် မမှန်ကန်ပါ။',

@@ -9,6 +9,9 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Str;
 
 class ProfileController extends Controller
 {
@@ -31,6 +34,38 @@ class ProfileController extends Controller
 
         $validated = $request->validated();
 
+        $avatarUrl = $user->avatar_url;
+
+        if ($request->hasFile('avatar')) {
+            $oldAvatarUrl = $user->avatar_url;
+
+            $path = $request->file('avatar')->store(
+                'profile-avatars',
+                'public'
+            );
+
+            $avatarUrl = URL::to(
+                '/storage/' . ltrim($path, '/')
+            );
+
+            if (
+                $oldAvatarUrl &&
+                Str::contains(
+                    $oldAvatarUrl,
+                    '/storage/profile-avatars/'
+                )
+            ) {
+                $oldPath = Str::after(
+                    $oldAvatarUrl,
+                    '/storage/'
+                );
+
+                Storage::disk('public')->delete(
+                    $oldPath
+                );
+            }
+        }
+
         $user->update([
             'name' =>
                 $validated['name'],
@@ -41,12 +76,7 @@ class ProfileController extends Controller
                 ),
 
             'avatar_url' =>
-                $validated['avatar_url']
-                ?? null,
-
-            'phone' =>
-                $validated['phone']
-                ?? null,
+                $avatarUrl,
 
             'gender' =>
                 $validated['gender']

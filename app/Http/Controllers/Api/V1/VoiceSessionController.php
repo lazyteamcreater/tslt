@@ -6,6 +6,7 @@ use App\Events\Voice\VoiceSessionEnded;
 use App\Events\Voice\VoiceSessionStarted;
 use App\Http\Controllers\Controller;
 use App\Models\VoiceSession;
+use App\Services\Firebase\FirebaseNotificationService;
 use App\Services\LiveKit\LiveKitModerationService;
 use App\Services\LiveKit\LiveKitTokenService;
 use Illuminate\Http\JsonResponse;
@@ -20,7 +21,10 @@ class VoiceSessionController extends Controller
         $tokenService,
 
         private readonly LiveKitModerationService
-        $moderationService
+        $moderationService,
+
+        private readonly FirebaseNotificationService
+        $notificationService
     ) {}
 
     /**
@@ -80,6 +84,11 @@ class VoiceSessionController extends Controller
                 'nullable',
                 'string',
                 'max:150',
+            ],
+
+            'send_notification' => [
+                'sometimes',
+                'boolean',
             ],
         ]);
 
@@ -171,6 +180,41 @@ class VoiceSessionController extends Controller
                     $session
                 )
             )->toOthers();
+
+            if (
+                $validated['send_notification']
+                    ?? false
+            ) {
+                $roomTitle =
+                    $session->title
+                    ?: 'ဓမ္မ Voice Room';
+
+                $this->notificationService
+                    ->sendToAll(
+                        title:
+                            'တိုက်ရိုက် တရားတော် စတင်နေပါပြီ',
+
+                        body:
+                            $user->name .
+                            ' မှ ' .
+                            $roomTitle .
+                            ' ကို စတင်ထားပါသည်။',
+
+                        data: [
+                            'type' =>
+                                'voice_room_started',
+
+                            'screen' =>
+                                'voice_room',
+
+                            'session_id' =>
+                                $session->id,
+
+                            'room_name' =>
+                                $session->room_name,
+                        ]
+                    );
+            }
 
             return response()->json([
                 'message' =>
