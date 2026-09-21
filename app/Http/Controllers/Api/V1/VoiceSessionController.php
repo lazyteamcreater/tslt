@@ -32,35 +32,43 @@ class VoiceSessionController extends Controller
      */
     public function status(): JsonResponse
     {
-        $session = VoiceSession::query()
-            ->with(
-                'host:id,name,avatar_url,role'
-            )
-            ->where(
-                'status',
-                'active'
-            )
-            ->latest('id')
-            ->first();
+        /*
+         * App clients များက status ကို မကြာခဏစစ်သောကြောင့်
+         * တူညီသည့် DB query ကို request တိုင်း မလုပ်ဘဲ ခဏ cache ထားမည်။
+         * Room start/end တွင် cache ကို ချက်ချင်းဖျက်ထားသည်။
+         */
+        $data = Cache::remember(
+            'voice-room:public-status',
+            now()->addSeconds(5),
+            function (): array {
+                $session = VoiceSession::query()
+                    ->with(
+                        'host:id,name,avatar_url,role'
+                    )
+                    ->where(
+                        'status',
+                        'active'
+                    )
+                    ->latest('id')
+                    ->first();
 
-        if (!$session) {
-            return response()->json([
-                'data' => [
-                    'is_active' => false,
-                    'session' => null,
-                ],
-            ]);
-        }
+                if (!$session) {
+                    return [
+                        'is_active' => false,
+                        'session' => null,
+                    ];
+                }
+
+                return [
+                    'is_active' => true,
+                    'session' =>
+                    $this->sessionData($session),
+                ];
+            }
+        );
 
         return response()->json([
-            'data' => [
-                'is_active' => true,
-
-                'session' =>
-                $this->sessionData(
-                    $session
-                ),
-            ],
+            'data' => $data,
         ]);
     }
 
@@ -167,6 +175,10 @@ class VoiceSessionController extends Controller
                 ]);
 
             $session->load('host');
+
+            Cache::forget(
+                'voice-room:public-status'
+            );
 
             $token =
                 $this->tokenService
@@ -377,6 +389,10 @@ class VoiceSessionController extends Controller
 
             $session->refresh();
             $session->load('host');
+
+            Cache::forget(
+                'voice-room:public-status'
+            );
 
             broadcast(
                 new VoiceSessionEnded(

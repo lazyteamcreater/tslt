@@ -271,7 +271,13 @@ class LiveKitModerationService
             return [];
         }
 
-        $participants = [];
+        /*
+         * LiveKit participant အားလုံး၏ user id ကို အရင်စုယူပြီး
+         * users နှင့် mic locks ကို query တစ်ကြိမ်စီဖြင့် ယူမည်။
+         * ယခင်လို participant တစ်ယောက်စီအတွက် query မပစ်တော့ပါ။
+         */
+        $liveKitParticipants = [];
+        $userIds = [];
 
         foreach (
             $response->getParticipants()
@@ -286,8 +292,46 @@ class LiveKitModerationService
                 continue;
             }
 
-            $user = User::query()
-                ->find($userId);
+            $liveKitParticipants[] = [
+                'user_id' => $userId,
+                'participant' => $participant,
+            ];
+            $userIds[] = $userId;
+        }
+
+        if ($userIds === []) {
+            return [];
+        }
+
+        $userIds = array_values(
+            array_unique($userIds)
+        );
+
+        $users = User::query()
+            ->whereIn('id', $userIds)
+            ->get()
+            ->keyBy('id');
+
+        $lockedUserIds = VoiceParticipantLock::query()
+            ->where(
+                'voice_session_id',
+                $session->id
+            )
+            ->whereIn('user_id', $userIds)
+            ->where('is_locked', true)
+            ->pluck('user_id')
+            ->mapWithKeys(
+                fn ($userId): array => [
+                    (int) $userId => true,
+                ]
+            );
+
+        $participants = [];
+
+        foreach ($liveKitParticipants as $entry) {
+            $userId = $entry['user_id'];
+            $participant = $entry['participant'];
+            $user = $users->get($userId);
 
             if (!$user) {
                 continue;
@@ -319,11 +363,8 @@ class LiveKitModerationService
             $individualLocked =
                 $user->isAdmin()
                     ? false
-                    : $this
-                        ->isIndividuallyLocked(
-                            $session,
-                            $user
-                        );
+                    : $lockedUserIds
+                        ->has($userId);
 
             /*
              * Effective Mic Lock

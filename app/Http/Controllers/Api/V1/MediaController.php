@@ -85,7 +85,7 @@ class MediaController extends Controller
             ->orderBy('sort_order')
             ->orderByDesc('published_at')
             ->orderByDesc('id')
-            ->cursorPaginate(20);
+            ->get();
 
         return response()->json([
             'data' => collect($media->items())
