@@ -82,31 +82,23 @@ class MediaController extends Controller
         }
 
         $media = $query
-            ->orderBy('sort_order')
-            ->orderByDesc('published_at')
-            ->orderByDesc('id')
-            ->get();
+    ->orderBy('sort_order')
+    ->orderByDesc('published_at')
+    ->orderByDesc('id')
+    ->get();
 
-        return response()->json([
-            'data' => collect($media->items())
-                ->map(
-                    fn (Media $medium): array =>
-                        $this->mediaData($medium)
-                )
-                ->values(),
+return response()->json([
+    'data' => $media
+        ->map(
+            fn (Media $medium): array =>
+                $this->mediaData($medium)
+        )
+        ->values(),
 
-            'meta' => [
-                'per_page' => $media->perPage(),
-
-                'next_cursor' => $media
-                    ->nextCursor()
-                    ?->encode(),
-
-                'previous_cursor' => $media
-                    ->previousCursor()
-                    ?->encode(),
-            ],
-        ]);
+    'meta' => [
+        'total' => $media->count(),
+    ],
+]);
     }
 
     /**
