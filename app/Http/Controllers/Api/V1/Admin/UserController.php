@@ -7,6 +7,8 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class UserController extends Controller
 {
@@ -358,6 +360,34 @@ class UserController extends Controller
                         $user->fresh()
                     ),
             ],
+        ]);
+    }
+
+    /** Reset a forgotten password from the authenticated admin app. */
+    public function resetPassword(Request $request, User $user): JsonResponse
+    {
+        // Admin accounts use their existing profile password flow.
+        if ($user->isAdmin()) {
+            return response()->json([
+                'message' => 'Admin account password ကို ဤနေရာမှ reset လုပ်၍မရပါ။',
+            ], 422);
+        }
+
+        $validated = $request->validate([
+            'password' => ['required', 'string', 'min:8', 'max:128', 'confirmed'],
+        ]);
+
+        DB::transaction(function () use ($user, $validated) {
+            // The User model's hashed cast hashes the password before storage.
+            $user->forceFill([
+                'password' => $validated['password'],
+                'remember_token' => Str::random(60),
+            ])->save();
+            $user->tokens()->delete();
+        });
+
+        return response()->json([
+            'message' => 'Password reset ပြီးပါပြီ။ Password အသစ်ဖြင့် ပြန်ဝင်ပါ။',
         ]);
     }
 

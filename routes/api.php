@@ -399,6 +399,11 @@ Route::prefix('v1')->group(function () {
             );
 
             Route::put(
+                '/users/{user}/password',
+                [AdminUserController::class, 'resetPassword']
+            )->middleware('throttle:10,1');
+
+            Route::put(
                 '/users/{user}/role',
                 [
                     AdminUserController::class,
